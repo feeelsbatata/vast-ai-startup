@@ -7,8 +7,8 @@ mkdir -p "$A1111_DIR/models/Lora"
 mkdir -p "$A1111_DIR/models/VAE"
 
 # Checkpoint
-wget -O "$A1111_DIR/models/Stable-diffusion/prefectIllustriousXL_v3.safetensors" \
-  "https://civitai.com/api/download/models/2081643?type=Model&format=SafeTensor&size=pruned&fp=fp16&token=$CIVITAI_TOKEN"
+wget -O "$A1111_DIR/models/Stable-diffusion/hassakuXLIllustrious_v30.safetensors" \
+  "https://civitai.com/api/download/models/2010753?type=Model&format=SafeTensor&size=pruned&fp=fp16&token=$CIVITAI_TOKEN"
 
 # Loras
 wget -O "$A1111_DIR/models/Lora/M1nma_style-000018.safetensors" \
