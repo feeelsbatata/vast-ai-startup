@@ -14,12 +14,8 @@ wget -O "$A1111_DIR/models/Stable-diffusion/hassakuXLIllustrious_v30.safetensors
 wget -O "$A1111_DIR/models/Lora/M1nma_style-000018.safetensors" \
   "https://civitai.com/api/download/models/1604190?type=Model&format=SafeTensor&token=$CIVITAI_TOKEN"
 
-wget -O "$A1111_DIR/models/Lora/Semi-Realism_Illustrious.safetensors" \
+wget -O "$A1111_DIR/models/Lora/Semi-realism_illustrious.safetensors" \
   "https://civitai.com/api/download/models/1340291?type=Model&format=SafeTensor&token=$CIVITAI_TOKEN"
 
 wget -O "$A1111_DIR/models/Lora/[Style] Daily Lives of my Countryside v2 [Illustrious-XL 2.0].safetensors" \
   "https://civitai.com/api/download/models/1774470?type=Model&format=SafeTensor&token=$CIVITAI_TOKEN"
-
-# VAE
-wget -O "$A1111_DIR/models/VAE/sdxlVAE_sdxlVAE.safetensors" \
-  "https://civitai.com/api/download/models/333245?type=Model&format=SafeTensor&token=$CIVITAI_TOKEN"
