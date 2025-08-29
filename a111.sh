@@ -29,6 +29,6 @@ cat > "$A1111_DIR/config.json" <<EOF
         "CLIP_stop_at_last_layers",
         "sd_vae"
     ],
-    "CLIP_stop_at_last_layers": 2,
+    "CLIP_stop_at_last_layers": 2
 }
 EOF
