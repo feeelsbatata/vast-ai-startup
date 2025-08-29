@@ -19,3 +19,16 @@ wget -O "$A1111_DIR/models/Lora/Semi-realism_illustrious.safetensors" \
 
 wget -O "$A1111_DIR/models/Lora/[Style] Daily Lives of my Countryside v2 [Illustrious-XL 2.0].safetensors" \
   "https://civitai.com/api/download/models/1774470?type=Model&format=SafeTensor&token=$CIVITAI_TOKEN"
+
+# Config
+# Config
+cat > "$A1111_DIR/config.json" <<EOF
+{
+    "quicksettings_list": [
+        "sd_model_checkpoint",
+        "CLIP_stop_at_last_layers",
+        "sd_vae"
+    ],
+    "CLIP_stop_at_last_layers": 2,
+}
+EOF
