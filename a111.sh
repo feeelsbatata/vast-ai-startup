@@ -1,10 +1,14 @@
 #!/bin/bash
 
 A1111_DIR=${WORKSPACE}/stable-diffusion-webui
+EXT_DIR="$A1111_DIR/extensions"
 
 mkdir -p "$A1111_DIR/models/Stable-diffusion"
 mkdir -p "$A1111_DIR/models/Lora"
 mkdir -p "$A1111_DIR/models/VAE"
+
+# Extensions
+git clone https://github.com/Mikubill/sd-webui-controlnet.git "$EXT_DIR/sd-webui-controlnet" --recursive
 
 # Checkpoint
 wget -O "$A1111_DIR/models/Stable-diffusion/hassakuXLIllustrious_v30.safetensors" \
@@ -20,7 +24,6 @@ wget -O "$A1111_DIR/models/Lora/Semi-realism_illustrious.safetensors" \
 wget -O "$A1111_DIR/models/Lora/[Style] Daily Lives of my Countryside v2 [Illustrious-XL 2.0].safetensors" \
   "https://civitai.com/api/download/models/1774470?type=Model&format=SafeTensor&token=$CIVITAI_TOKEN"
 
-# Config
 # Config
 cat > "$A1111_DIR/config.json" <<EOF
 {
