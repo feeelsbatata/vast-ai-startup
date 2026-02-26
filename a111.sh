@@ -8,7 +8,7 @@ mkdir -p "$A1111_DIR/models/Lora"
 mkdir -p "$A1111_DIR/models/VAE"
 
 # Extensions
-git clone https://github.com/civitai/sd_civitai_extension "$EXT_DIR/sd_civitai_extension" --recursive
+# git clone https://github.com/civitai/sd_civitai_extension "$EXT_DIR/sd_civitai_extension" --recursive
 
 # Config
 cat > "$A1111_DIR/config.json" <<EOF
