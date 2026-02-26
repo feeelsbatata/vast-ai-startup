@@ -8,21 +8,7 @@ mkdir -p "$A1111_DIR/models/Lora"
 mkdir -p "$A1111_DIR/models/VAE"
 
 # Extensions
-git clone https://github.com/Mikubill/sd-webui-controlnet.git "$EXT_DIR/sd-webui-controlnet" --recursive
-
-# Checkpoint
-wget -O "$A1111_DIR/models/Stable-diffusion/hassakuXLIllustrious_v30.safetensors" \
-  "https://civitai.com/api/download/models/2010753?type=Model&format=SafeTensor&size=pruned&fp=fp16&token=$CIVITAI_TOKEN"
-
-# Loras
-wget -O "$A1111_DIR/models/Lora/M1nma_style-000018.safetensors" \
-  "https://civitai.com/api/download/models/1604190?type=Model&format=SafeTensor&token=$CIVITAI_TOKEN"
-
-wget -O "$A1111_DIR/models/Lora/Semi-realism_illustrious.safetensors" \
-  "https://civitai.com/api/download/models/1340291?type=Model&format=SafeTensor&token=$CIVITAI_TOKEN"
-
-wget -O "$A1111_DIR/models/Lora/[Style] Daily Lives of my Countryside v2 [Illustrious-XL 2.0].safetensors" \
-  "https://civitai.com/api/download/models/1774470?type=Model&format=SafeTensor&token=$CIVITAI_TOKEN"
+git clone https://github.com/civitai/sd_civitai_extension "$EXT_DIR/sd_civitai_extension" --recursive
 
 # Config
 cat > "$A1111_DIR/config.json" <<EOF
