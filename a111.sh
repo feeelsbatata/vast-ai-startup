@@ -46,10 +46,10 @@ HF_MODELS_DEFAULT=(
 # CivitAI models (requires CIVITAI_TOKEN for some models)
 # Use trailing / for output path to use content-disposition filename
 CIVITAI_MODELS_DEFAULT=(
-    "https://civitai.com/api/download/models/2514310?type=Model&format=SafeTensor&size=pruned&fp=fp16|$MODELS_DIR/Stable-diffusion/"
-    "https://civitai.com/api/download/models/1039044?type=Model&format=SafeTensor|$MODELS_DIR/Lora/"
-    "https://civitai.com/api/download/models/1639053?type=Model&format=SafeTensor|$MODELS_DIR/Lora/"
-    "https://civitai.com/api/download/models/1363899?type=Model&format=SafeTensor|$MODELS_DIR/Lora/"
+    "https://civitai.com/api/download/models/2514310?type=Model&format=SafeTensor&size=pruned&fp=fp16|$MODELS_DIR/Stable-diffusion/illustrious.safetensors"
+    "https://civitai.com/api/download/models/1039044?type=Model&format=SafeTensor|$MODELS_DIR/Lora/alke.safetensors"
+    "https://civitai.com/api/download/models/1639053?type=Model&format=SafeTensor|$MODELS_DIR/Lora/disney.safetensors"
+    "https://civitai.com/api/download/models/1363899?type=Model&format=SafeTensor|$MODELS_DIR/Lora/ronin.safetensors"
     
     #"https://civitai.com/api/download/models/798204?type=Model&format=SafeTensor&size=full&fp=fp16
     #|$MODELS_DIR/Stable-diffusion/"
