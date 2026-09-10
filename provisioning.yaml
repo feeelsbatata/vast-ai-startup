@@ -1,0 +1,149 @@
+# Vast.ai provisioning manifest: ComfyUI + MiniMax H3 (video+audio) + Chroma1-HD (uncensored img2img)
+#
+# Target image: vastai/comfyui (PyTorch cu130 build; any Blackwell-capable tag works).
+# Set on the Vast template / instance:  -e PROVISIONING_MANIFEST=https://<raw url of this file>
+# Disk: needs ~84 GB of model files on top of the image -> create the instance with >= 120 GB.
+#
+# Optional env overrides:
+#   COMFYUI_VERSION   git tag/branch/commit for ComfyUI (default v0.35.0)
+#   WORKSPACE         defaults to /workspace
+#
+# Re-run by hand on a live box:  provisioner /provisioning.yaml   (add --force to redo every phase)
+# Log: /var/log/portal/provisioning.log   Flags: /.provisioning (running) /.provisioning_complete /.provisioning_failed
+
+version: 1
+
+settings:
+  venv: "/venv/main"
+  concurrency:
+    hf_downloads: 4
+  retry:
+    max_attempts: 8
+    initial_delay: 5
+    backoff_multiplier: 2
+
+on_failure:
+  action: continue
+  max_retries: 3
+  retry_delay: 60
+
+downloads:
+  # ---- MiniMax H3 (Comfy-Org/MiniMax-H3) ----
+  - url: https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+  - url: https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+  - url: https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/vae/minimax_h3_video_vae_fp16.safetensors"
+  - url: https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/vae/minimax_h3_audio_vae_fp32.safetensors"
+  - url: https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors"
+
+  # ---- Chroma1-HD (bf16) + T5-XXL fp16 + Flux VAE ----
+  - url: https://huggingface.co/lodestones/Chroma1-HD/resolve/main/Chroma1-HD.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/diffusion_models/Chroma1-HD.safetensors"
+  - url: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/text_encoders/t5xxl_fp16.safetensors"
+  - url: https://huggingface.co/Comfy-Org/Lumina_Image_2.0_Repackaged/resolve/main/split_files/vae/ae.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/vae/ae.safetensors"
+
+# Ready-to-run API-format graphs (drag onto the canvas, or POST to /prompt). Written after downloads.
+write_files_late:
+  - path: "${WORKSPACE:-/workspace}/ComfyUI/user/default/workflows/MiniMax_H3_test_api_graph.json"
+    permissions: "0644"
+    content: |
+      {
+       "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors", "weight_dtype": "default"}},
+       "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors", "type": "minimax", "device": "default"}},
+       "3": {"class_type": "VAELoader", "inputs": {"vae_name": "minimax_h3_video_vae_fp16.safetensors"}},
+       "4": {"class_type": "VAELoader", "inputs": {"vae_name": "minimax_h3_audio_vae_fp32.safetensors"}},
+       "5": {"class_type": "LoadImage", "inputs": {"image": "example.png", "upload": "image"}},
+       "6": {"class_type": "MiniMaxH3ImageToVideo", "inputs": {"clip": ["2", 0], "vae": ["3", 0], "first_frame": ["5", 0], "prompt": "Cinematic slow push-in on the subject from image 1, soft studio lighting, subtle camera drift, gentle motion, realistic detail. Audio: quiet ambient room tone with a soft warm synth pad swelling gently.", "width": 1344, "height": 768, "length": 107}},
+       "7": {"class_type": "RandomNoise", "inputs": {"noise_seed": 42}},
+       "8": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "res_multistep"}},
+       "9": {"class_type": "BasicScheduler", "inputs": {"model": ["1", 0], "scheduler": "simple", "steps": 20, "denoise": 1.0}},
+       "10": {"class_type": "BasicGuider", "inputs": {"model": ["1", 0], "conditioning": ["6", 0]}},
+       "11": {"class_type": "SamplerCustomAdvanced", "inputs": {"noise": ["7", 0], "guider": ["10", 0], "sampler": ["8", 0], "sigmas": ["9", 0], "latent_image": ["6", 1]}},
+       "12": {"class_type": "VAEDecode", "inputs": {"samples": ["11", 0], "vae": ["3", 0]}},
+       "13": {"class_type": "VAEDecodeAudio", "inputs": {"samples": ["11", 0], "vae": ["4", 0]}},
+       "14": {"class_type": "CreateVideo", "inputs": {"images": ["12", 0], "fps": 24.0, "audio": ["13", 0]}},
+       "15": {"class_type": "SaveVideo", "inputs": {"video": ["14", 0], "filename_prefix": "video/MiniMax_H3", "format": "auto", "codec": "auto"}}
+      }
+
+  - path: "${WORKSPACE:-/workspace}/ComfyUI/user/default/workflows/Chroma1-HD_img2img_api_graph.json"
+    permissions: "0644"
+    content: |
+      {
+       "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "Chroma1-HD.safetensors", "weight_dtype": "default"}},
+       "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": "t5xxl_fp16.safetensors", "type": "chroma", "device": "default"}},
+       "3": {"class_type": "VAELoader", "inputs": {"vae_name": "ae.safetensors"}},
+       "4": {"class_type": "T5TokenizerOptions", "inputs": {"clip": ["2", 0], "min_padding": 1, "min_length": 0}},
+       "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 0], "text": "A detailed oil painting of the same subject and composition, thick impasto brushstrokes, warm golden-hour palette, dramatic chiaroscuro lighting, museum quality, fine canvas texture."}},
+       "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 0], "text": "This low quality greyscale unfinished sketch is inaccurate and flawed. The image is very blurred and lacks detail with excessive chromatic aberrations and artifacts."}},
+       "7": {"class_type": "ModelSamplingAuraFlow", "inputs": {"model": ["1", 0], "shift": 1.0}},
+       "8": {"class_type": "CFGGuider", "inputs": {"model": ["7", 0], "positive": ["5", 0], "negative": ["6", 0], "cfg": 3.5}},
+       "9": {"class_type": "LoadImage", "inputs": {"image": "example.png", "upload": "image"}},
+       "10": {"class_type": "ImageScaleToTotalPixels", "inputs": {"image": ["9", 0], "upscale_method": "lanczos", "megapixels": 1.0, "resolution_steps": 16}},
+       "11": {"class_type": "VAEEncode", "inputs": {"pixels": ["10", 0], "vae": ["3", 0]}},
+       "12": {"class_type": "RandomNoise", "inputs": {"noise_seed": 7}},
+       "13": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "euler"}},
+       "14": {"class_type": "BasicScheduler", "inputs": {"model": ["7", 0], "scheduler": "beta", "steps": 26, "denoise": 0.75}},
+       "15": {"class_type": "SamplerCustomAdvanced", "inputs": {"noise": ["12", 0], "guider": ["8", 0], "sampler": ["13", 0], "sigmas": ["14", 0], "latent_image": ["11", 0]}},
+       "16": {"class_type": "VAEDecode", "inputs": {"samples": ["15", 0], "vae": ["3", 0]}},
+       "17": {"class_type": "SaveImage", "inputs": {"images": ["16", 0], "filename_prefix": "Chroma_img2img"}}
+      }
+
+post_commands:
+  # 1. Pin ComfyUI to a release with MiniMax H3 + Chroma support and sync its python deps into /venv/main.
+  - |
+    set -e
+    cd "${WORKSPACE:-/workspace}/ComfyUI"
+    git config --global --add safe.directory "$PWD" || true
+    git fetch --tags -q origin
+    git checkout -q "${COMFYUI_VERSION:-v0.35.0}"
+    uv pip install --no-cache --python /venv/main/bin/python -r requirements.txt
+    echo "ComfyUI at $(git describe --tags --always)"
+
+  # 2. Copy the official GUI templates into the user's workflow list, pointed at the files downloaded above.
+  - |
+    set -e
+    /venv/main/bin/python - <<'PY'
+    import json, os
+    import comfyui_workflow_templates_json as pkg
+    src = os.path.join(os.path.dirname(pkg.__file__), "templates")
+    dst = os.path.join(os.environ.get("WORKSPACE", "/workspace"), "ComfyUI", "user", "default", "workflows")
+    os.makedirs(dst, exist_ok=True)
+    jobs = {
+        "video_minimax_h3_i2v.json": ("MiniMax_H3_i2v_fl2va.json", {
+            "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"}),
+        "video_minimax_h3_t2v.json": ("MiniMax_H3_t2v.json", {
+            "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"}),
+        "image_chroma_text_to_image.json": ("Chroma1-HD_text_to_image.json", {
+            "Chroma1-HD-fp8mixed.safetensors": "Chroma1-HD.safetensors",
+            "t5xxl_fp8_e4m3fn_scaled.safetensors": "t5xxl_fp16.safetensors"}),
+    }
+    for name, (out, subs) in jobs.items():
+        p = os.path.join(src, name)
+        if not os.path.exists(p):
+            print("template missing, skipped:", name); continue
+        s = open(p).read()
+        for a, b in subs.items(): s = s.replace(a, b)
+        json.loads(s)
+        open(os.path.join(dst, out), "w").write(s)
+        print("workflow:", out)
+    PY
+
+  # 3. Sanity check: every model file present and non-trivial in size.
+  - |
+    set -e
+    M="${WORKSPACE:-/workspace}/ComfyUI/models"
+    for f in diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors \
+             text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors \
+             vae/minimax_h3_video_vae_fp16.safetensors vae/minimax_h3_audio_vae_fp32.safetensors \
+             loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors \
+             diffusion_models/Chroma1-HD.safetensors text_encoders/t5xxl_fp16.safetensors vae/ae.safetensors; do
+      [ -s "$M/$f" ] || { echo "MISSING: $M/$f"; exit 1; }
+      ls -l "$M/$f"
+    done
+    rm -rf "$M"/*/.cache
