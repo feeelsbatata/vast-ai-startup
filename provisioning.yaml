@@ -1,8 +1,10 @@
-# Vast.ai provisioning manifest: ComfyUI + MiniMax H3 (video+audio) + Chroma1-HD (uncensored img2img)
+# Vast.ai provisioning manifest: ComfyUI + MiniMax H3 (fl2va, video+audio) + Mystic XXX LoRA
 #
 # Target image: vastai/comfyui (PyTorch cu130 build; any Blackwell-capable tag works).
-# Set on the Vast template / instance:  -e PROVISIONING_MANIFEST=https://<raw url of this file>
-# Disk: needs ~84 GB of model files on top of the image -> create the instance with >= 120 GB.
+# Set on the Vast template / instance:
+#   -e PROVISIONING_MANIFEST=https://<raw url of this file>
+#   -e CIVITAI_TOKEN=<your CivitAI API key>      (needed for the Mystic XXX LoRA; skipped if unset)
+# Disk: ~53 GB of model files on top of the image -> create the instance with >= 80 GB.
 #
 # Optional env overrides:
 #   COMFYUI_VERSION   git tag/branch/commit for ComfyUI (default v0.35.0)
@@ -40,17 +42,13 @@ downloads:
   - url: https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors
     dest: "${WORKSPACE:-/workspace}/ComfyUI/models/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors"
 
-  # ---- Chroma1-HD (bf16) + T5-XXL fp16 + Flux VAE ----
-  - url: https://huggingface.co/lodestones/Chroma1-HD/resolve/main/Chroma1-HD.safetensors
-    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/diffusion_models/Chroma1-HD.safetensors"
-  - url: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors
-    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/text_encoders/t5xxl_fp16.safetensors"
-  - url: https://huggingface.co/Comfy-Org/Lumina_Image_2.0_Repackaged/resolve/main/split_files/vae/ae.safetensors
-    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/vae/ae.safetensors"
+  # ---- GUI workflow with the Mystic XXX LoRA wired in (kept next to this manifest in the repo) ----
+  - url: https://raw.githubusercontent.com/feeelsbatata/vast-ai-startup/refs/heads/main/workflows/MiniMax_H3_i2v_fl2va_Mystic.json
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/user/default/workflows/MiniMax_H3_i2v_fl2va_Mystic.json"
 
-# Ready-to-run API-format graphs (drag onto the canvas, or POST to /prompt). Written after downloads.
+# API-format graph for scripting (POST to /prompt). NOT a GUI workflow, so it lives outside the sidebar dir.
 write_files_late:
-  - path: "${WORKSPACE:-/workspace}/ComfyUI/user/default/workflows/MiniMax_H3_test_api_graph.json"
+  - path: "${WORKSPACE:-/workspace}/api_graphs/MiniMax_H3_test_api_graph.json"
     permissions: "0644"
     content: |
       {
@@ -62,40 +60,18 @@ write_files_late:
        "6": {"class_type": "MiniMaxH3ImageToVideo", "inputs": {"clip": ["2", 0], "vae": ["3", 0], "first_frame": ["5", 0], "prompt": "Cinematic slow push-in on the subject from image 1, soft studio lighting, subtle camera drift, gentle motion, realistic detail. Audio: quiet ambient room tone with a soft warm synth pad swelling gently.", "width": 1344, "height": 768, "length": 107}},
        "7": {"class_type": "RandomNoise", "inputs": {"noise_seed": 42}},
        "8": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "res_multistep"}},
-       "9": {"class_type": "BasicScheduler", "inputs": {"model": ["1", 0], "scheduler": "simple", "steps": 20, "denoise": 1.0}},
-       "10": {"class_type": "BasicGuider", "inputs": {"model": ["1", 0], "conditioning": ["6", 0]}},
+       "9": {"class_type": "BasicScheduler", "inputs": {"model": ["16", 0], "scheduler": "simple", "steps": 20, "denoise": 1.0}},
+       "10": {"class_type": "BasicGuider", "inputs": {"model": ["16", 0], "conditioning": ["6", 0]}},
        "11": {"class_type": "SamplerCustomAdvanced", "inputs": {"noise": ["7", 0], "guider": ["10", 0], "sampler": ["8", 0], "sigmas": ["9", 0], "latent_image": ["6", 1]}},
        "12": {"class_type": "VAEDecode", "inputs": {"samples": ["11", 0], "vae": ["3", 0]}},
        "13": {"class_type": "VAEDecodeAudio", "inputs": {"samples": ["11", 0], "vae": ["4", 0]}},
        "14": {"class_type": "CreateVideo", "inputs": {"images": ["12", 0], "fps": 24.0, "audio": ["13", 0]}},
-       "15": {"class_type": "SaveVideo", "inputs": {"video": ["14", 0], "filename_prefix": "video/MiniMax_H3", "format": "auto", "codec": "auto"}}
-      }
-
-  - path: "${WORKSPACE:-/workspace}/ComfyUI/user/default/workflows/Chroma1-HD_img2img_api_graph.json"
-    permissions: "0644"
-    content: |
-      {
-       "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "Chroma1-HD.safetensors", "weight_dtype": "default"}},
-       "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": "t5xxl_fp16.safetensors", "type": "chroma", "device": "default"}},
-       "3": {"class_type": "VAELoader", "inputs": {"vae_name": "ae.safetensors"}},
-       "4": {"class_type": "T5TokenizerOptions", "inputs": {"clip": ["2", 0], "min_padding": 1, "min_length": 0}},
-       "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 0], "text": "A detailed oil painting of the same subject and composition, thick impasto brushstrokes, warm golden-hour palette, dramatic chiaroscuro lighting, museum quality, fine canvas texture."}},
-       "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 0], "text": "This low quality greyscale unfinished sketch is inaccurate and flawed. The image is very blurred and lacks detail with excessive chromatic aberrations and artifacts."}},
-       "7": {"class_type": "ModelSamplingAuraFlow", "inputs": {"model": ["1", 0], "shift": 1.0}},
-       "8": {"class_type": "CFGGuider", "inputs": {"model": ["7", 0], "positive": ["5", 0], "negative": ["6", 0], "cfg": 3.5}},
-       "9": {"class_type": "LoadImage", "inputs": {"image": "example.png", "upload": "image"}},
-       "10": {"class_type": "ImageScaleToTotalPixels", "inputs": {"image": ["9", 0], "upscale_method": "lanczos", "megapixels": 1.0, "resolution_steps": 16}},
-       "11": {"class_type": "VAEEncode", "inputs": {"pixels": ["10", 0], "vae": ["3", 0]}},
-       "12": {"class_type": "RandomNoise", "inputs": {"noise_seed": 7}},
-       "13": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "euler"}},
-       "14": {"class_type": "BasicScheduler", "inputs": {"model": ["7", 0], "scheduler": "beta", "steps": 26, "denoise": 0.75}},
-       "15": {"class_type": "SamplerCustomAdvanced", "inputs": {"noise": ["12", 0], "guider": ["8", 0], "sampler": ["13", 0], "sigmas": ["14", 0], "latent_image": ["11", 0]}},
-       "16": {"class_type": "VAEDecode", "inputs": {"samples": ["15", 0], "vae": ["3", 0]}},
-       "17": {"class_type": "SaveImage", "inputs": {"images": ["16", 0], "filename_prefix": "Chroma_img2img"}}
+       "15": {"class_type": "SaveVideo", "inputs": {"video": ["14", 0], "filename_prefix": "video/MiniMax_H3_Mystic", "format": "auto", "codec": "auto"}},
+       "16": {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["1", 0], "lora_name": "MysticXXX_MMH3-V4.safetensors", "strength_model": 1.0}}
       }
 
 post_commands:
-  # 1. Pin ComfyUI to a release with MiniMax H3 + Chroma support and sync its python deps into /venv/main.
+  # 1. Pin ComfyUI to a release with MiniMax H3 support and sync its python deps into /venv/main.
   - |
     set -e
     cd "${WORKSPACE:-/workspace}/ComfyUI"
@@ -105,7 +81,24 @@ post_commands:
     uv pip install --no-cache --python /venv/main/bin/python -r requirements.txt
     echo "ComfyUI at $(git describe --tags --always)"
 
-  # 2. Copy the official GUI templates into the user's workflow list, pointed at the files downloaded above.
+  # 2. Mystic XXX LoRA from CivitAI ([MMH3] Mystic XXX v4.0, FL2VA variant; https://civitai.com/models/1501507?modelVersionId=3266628).
+  #    Done here instead of `downloads`/`conditional_downloads` because (a) the provisioner's CivitAI token
+  #    validation uses Python's default User-Agent, which Cloudflare blocks with 403, so `civitai_token_valid`
+  #    is never true on this image, and (b) its civitai.com handler sends the token as an Authorization header
+  #    that wget forwards to the R2 redirect, which also 403s. Token in the query string works.
+  - |
+    set -e
+    D="${WORKSPACE:-/workspace}/ComfyUI/models/loras"; mkdir -p "$D"
+    if [ -z "${CIVITAI_TOKEN:-}" ]; then echo "CIVITAI_TOKEN not set; skipping Mystic XXX LoRA"; exit 0; fi
+    L="$D/MysticXXX_MMH3-V4.safetensors"
+    if [ -s "$L" ]; then echo "already present: $L"; exit 0; fi
+    wget -q --max-redirect=10 -O "$L.part" \
+      "https://civitai.com/api/download/models/3266628?fileId=3150341&token=${CIVITAI_TOKEN}" \
+      || { rm -f "$L.part"; echo "Mystic XXX LoRA download failed"; exit 1; }
+    mv "$L.part" "$L"; ls -l "$L"
+
+  # 3. Copy the official H3 GUI templates into the user's workflow list, pointed at the int8 text encoder.
+  #    (The Mystic i2v workflow is downloaded ready-made in the downloads section above.)
   - |
     set -e
     /venv/main/bin/python - <<'PY'
@@ -119,9 +112,6 @@ post_commands:
             "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"}),
         "video_minimax_h3_t2v.json": ("MiniMax_H3_t2v.json", {
             "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"}),
-        "image_chroma_text_to_image.json": ("Chroma1-HD_text_to_image.json", {
-            "Chroma1-HD-fp8mixed.safetensors": "Chroma1-HD.safetensors",
-            "t5xxl_fp8_e4m3fn_scaled.safetensors": "t5xxl_fp16.safetensors"}),
     }
     for name, (out, subs) in jobs.items():
         p = os.path.join(src, name)
@@ -134,16 +124,25 @@ post_commands:
         print("workflow:", out)
     PY
 
-  # 3. Sanity check: every model file present and non-trivial in size.
+  # 4. Sanity check: every model/workflow file present and non-trivial in size.
   - |
     set -e
-    M="${WORKSPACE:-/workspace}/ComfyUI/models"
+    W="${WORKSPACE:-/workspace}"
+    M="$W/ComfyUI/models"
     for f in diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors \
              text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors \
              vae/minimax_h3_video_vae_fp16.safetensors vae/minimax_h3_audio_vae_fp32.safetensors \
-             loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors \
-             diffusion_models/Chroma1-HD.safetensors text_encoders/t5xxl_fp16.safetensors vae/ae.safetensors; do
+             loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors; do
       [ -s "$M/$f" ] || { echo "MISSING: $M/$f"; exit 1; }
       ls -l "$M/$f"
     done
+    if [ -n "${CIVITAI_TOKEN:-}" ]; then
+      f=MysticXXX_MMH3-V4.safetensors
+      [ -s "$M/loras/$f" ] || { echo "MISSING: $M/loras/$f (CivitAI download failed?)"; exit 1; }
+      ls -l "$M/loras/$f"
+    else
+      echo "WARNING: CIVITAI_TOKEN not set; Mystic XXX LoRA was not downloaded. The Mystic workflow will fail until it is added to $M/loras/."
+    fi
+    P="$W/ComfyUI/user/default/workflows/MiniMax_H3_i2v_fl2va_Mystic.json"
+    [ -s "$P" ] && /venv/main/bin/python -c "import json,sys; json.load(open(sys.argv[1]))" "$P" || { echo "MISSING or invalid: $P"; exit 1; }
     rm -rf "$M"/*/.cache
