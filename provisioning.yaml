@@ -1,10 +1,11 @@
-# Vast.ai provisioning manifest: ComfyUI + MiniMax H3 (fl2va, video+audio) + Mystic XXX LoRA
+# Vast.ai provisioning manifest: ComfyUI + MiniMax H3 (fl2va + ref2va, video+audio) + Mystic XXX LoRAs
+#                                 + Krea 2 Turbo (text-to-image, img2img, up to 3 reference images, Identity Edit) + Realistic Snapshot LoRA
 #
 # Target image: vastai/comfyui (PyTorch cu130 build; any Blackwell-capable tag works).
 # Set on the Vast template / instance:
 #   -e PROVISIONING_MANIFEST=https://<raw url of this file>
-#   -e CIVITAI_TOKEN=<your CivitAI API key>      (needed for the Mystic XXX LoRA; skipped if unset)
-# Disk: ~53 GB of model files on top of the image -> create the instance with >= 80 GB.
+#   -e CIVITAI_TOKEN=<your CivitAI API key>      (needed for the Mystic XXX + Realistic Snapshot LoRAs; skipped if unset)
+# Disk: ~98 GB of model files on top of the image -> create the instance with >= 120 GB.
 #
 # Optional env overrides:
 #   COMFYUI_VERSION   git tag/branch/commit for ComfyUI (default v0.35.0)
@@ -41,10 +42,41 @@ downloads:
     dest: "${WORKSPACE:-/workspace}/ComfyUI/models/vae/minimax_h3_audio_vae_fp32.safetensors"
   - url: https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors
     dest: "${WORKSPACE:-/workspace}/ComfyUI/models/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors"
+  # ref2va task (multiple reference images/videos/audio): separate DiT + its own turbo LoRA
+  - url: https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"
+  - url: https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors"
 
-  # ---- GUI workflow with the Mystic XXX LoRA wired in (kept next to this manifest in the repo) ----
+  # ---- Krea 2 Turbo text-to-image (Comfy-Org/Krea-2), same files as the official image_krea2_turbo_t2i_int8 template ----
+  - url: https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_int8_convrot.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/diffusion_models/krea2_turbo_int8_convrot.safetensors"
+  - url: https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/text_encoders/qwen3vl_4b_fp8_scaled.safetensors"
+  - url: https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/vae/qwen_image_vae.safetensors"
+  # style-reference LoRA (ostris): lets Krea 2 Turbo take up to 3 reference images as latents
+  - url: https://huggingface.co/Comfy-Org/Krea-2/resolve/main/loras/krea2_style_reference.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/loras/krea2_style_reference.safetensors"
+  # Identity Edit LoRA v1.2 (conradlocke): identity-preserving edits / restaging; needs the comfyui-krea2edit custom nodes (post-command 3)
+  - url: https://huggingface.co/conradlocke/krea2-identity-edit/resolve/main/krea2_identity_edit_v1_2.safetensors
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/models/loras/krea2_identity_edit_v1_2.safetensors"
+
+  # ---- GUI workflows with the CivitAI LoRAs wired in (kept next to this manifest in the repo) ----
   - url: https://raw.githubusercontent.com/feeelsbatata/vast-ai-startup/refs/heads/main/workflows/MiniMax_H3_i2v_fl2va_Mystic.json
     dest: "${WORKSPACE:-/workspace}/ComfyUI/user/default/workflows/MiniMax_H3_i2v_fl2va_Mystic.json"
+  - url: https://raw.githubusercontent.com/feeelsbatata/vast-ai-startup/refs/heads/main/workflows/MiniMax_H3_ref2va_Mystic.json
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/user/default/workflows/MiniMax_H3_ref2va_Mystic.json"
+  - url: https://raw.githubusercontent.com/feeelsbatata/vast-ai-startup/refs/heads/main/workflows/Krea2_turbo_t2i_RealisticSnapshot.json
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/user/default/workflows/Krea2_turbo_t2i_RealisticSnapshot.json"
+  - url: https://raw.githubusercontent.com/feeelsbatata/vast-ai-startup/refs/heads/main/workflows/Krea2_turbo_img2img_RealisticSnapshot.json
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/user/default/workflows/Krea2_turbo_img2img_RealisticSnapshot.json"
+  - url: https://raw.githubusercontent.com/feeelsbatata/vast-ai-startup/refs/heads/main/workflows/Krea2_turbo_multiref_RealisticSnapshot.json
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/user/default/workflows/Krea2_turbo_multiref_RealisticSnapshot.json"
+  - url: https://raw.githubusercontent.com/feeelsbatata/vast-ai-startup/refs/heads/main/workflows/Krea2_identity_edit_RealisticSnapshot.json
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/user/default/workflows/Krea2_identity_edit_RealisticSnapshot.json"
+  - url: https://raw.githubusercontent.com/feeelsbatata/vast-ai-startup/refs/heads/main/workflows/Krea2_store_restage_RealisticSnapshot.json
+    dest: "${WORKSPACE:-/workspace}/ComfyUI/user/default/workflows/Krea2_store_restage_RealisticSnapshot.json"
 
 # API-format graph for scripting (POST to /prompt). NOT a GUI workflow, so it lives outside the sidebar dir.
 write_files_late:
@@ -81,7 +113,8 @@ post_commands:
     uv pip install --no-cache --python /venv/main/bin/python -r requirements.txt
     echo "ComfyUI at $(git describe --tags --always)"
 
-  # 2. Mystic XXX LoRA from CivitAI ([MMH3] Mystic XXX v4.0, FL2VA variant; https://civitai.com/models/1501507?modelVersionId=3266628).
+  # 2. CivitAI LoRAs: [MMH3] Mystic XXX v4.0, FL2VA + REF2VA variants (https://civitai.com/models/1501507?modelVersionId=3266628)
+  #    and Realistic Snapshot Krea 2 v0.5 (https://civitai.com/models/2268008?modelVersionId=3084537).
   #    Done here instead of `downloads`/`conditional_downloads` because (a) the provisioner's CivitAI token
   #    validation uses Python's default User-Agent, which Cloudflare blocks with 403, so `civitai_token_valid`
   #    is never true on this image, and (b) its civitai.com handler sends the token as an Authorization header
@@ -89,16 +122,29 @@ post_commands:
   - |
     set -e
     D="${WORKSPACE:-/workspace}/ComfyUI/models/loras"; mkdir -p "$D"
-    if [ -z "${CIVITAI_TOKEN:-}" ]; then echo "CIVITAI_TOKEN not set; skipping Mystic XXX LoRA"; exit 0; fi
-    L="$D/MysticXXX_MMH3-V4.safetensors"
-    if [ -s "$L" ]; then echo "already present: $L"; exit 0; fi
-    wget -q --max-redirect=10 -O "$L.part" \
-      "https://civitai.com/api/download/models/3266628?fileId=3150341&token=${CIVITAI_TOKEN}" \
-      || { rm -f "$L.part"; echo "Mystic XXX LoRA download failed"; exit 1; }
-    mv "$L.part" "$L"; ls -l "$L"
+    if [ -z "${CIVITAI_TOKEN:-}" ]; then echo "CIVITAI_TOKEN not set; skipping CivitAI LoRAs"; exit 0; fi
+    # spec = "<modelVersionId> <fileId> <filename>"
+    for spec in "3266628 3150341 MysticXXX_MMH3-V4.safetensors" \
+                "3266628 3156453 MysticXXX_MMH3-V4-ref2va.safetensors" \
+                "3084537 2963911 RealisticSnapshotKrea2.safetensors"; do
+      set -- $spec; VER_ID=$1; FILE_ID=$2; L="$D/$3"
+      if [ -s "$L" ]; then echo "already present: $L"; continue; fi
+      wget -q --max-redirect=10 -O "$L.part" \
+        "https://civitai.com/api/download/models/${VER_ID}?fileId=${FILE_ID}&token=${CIVITAI_TOKEN}" \
+        || { rm -f "$L.part"; echo "CivitAI LoRA download failed: $3"; exit 1; }
+      mv "$L.part" "$L"; ls -l "$L"
+    done
 
-  # 3. Copy the official H3 GUI templates into the user's workflow list, pointed at the int8 text encoder.
-  #    (The Mystic i2v workflow is downloaded ready-made in the downloads section above.)
+  # 3. Custom nodes: comfyui-krea2edit (Krea2EditModelPatch + Krea2EditGroundedEncode, no extra python deps).
+  #    ComfyUI is started by the image after provisioning, so the nodes are picked up on first boot.
+  - |
+    set -e
+    N="${WORKSPACE:-/workspace}/ComfyUI/custom_nodes/comfyui-krea2edit"
+    if [ -d "$N/.git" ]; then git -C "$N" pull -q --ff-only || true; else git clone -q https://github.com/lbouaraba/comfyui-krea2edit "$N"; fi
+    echo "comfyui-krea2edit at $(git -C "$N" rev-parse --short HEAD)"
+
+  # 4. Copy the official H3 GUI templates into the user's workflow list, pointed at the int8 text encoder.
+  #    (The Mystic i2v / ref2va and Krea 2 Realistic Snapshot t2i / img2img / multiref workflows are downloaded ready-made in the downloads section above.)
   - |
     set -e
     /venv/main/bin/python - <<'PY'
@@ -112,6 +158,10 @@ post_commands:
             "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"}),
         "video_minimax_h3_t2v.json": ("MiniMax_H3_t2v.json", {
             "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"}),
+        "video_minimax_h3_r2v.json": ("MiniMax_H3_ref2va.json", {
+            "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"}),
+        "video_minimax_h3_multiframe_reference.json": ("MiniMax_H3_ref2va_multiframe.json", {
+            "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"}),
     }
     for name, (out, subs) in jobs.items():
         p = os.path.join(src, name)
@@ -124,7 +174,7 @@ post_commands:
         print("workflow:", out)
     PY
 
-  # 4. Sanity check: every model/workflow file present and non-trivial in size.
+  # 5. Sanity check: every model/workflow file present and non-trivial in size.
   - |
     set -e
     W="${WORKSPACE:-/workspace}"
@@ -132,17 +182,26 @@ post_commands:
     for f in diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors \
              text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors \
              vae/minimax_h3_video_vae_fp16.safetensors vae/minimax_h3_audio_vae_fp32.safetensors \
-             loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors; do
+             loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors \
+             diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors \
+             loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors \
+             diffusion_models/krea2_turbo_int8_convrot.safetensors \
+             text_encoders/qwen3vl_4b_fp8_scaled.safetensors vae/qwen_image_vae.safetensors \
+             loras/krea2_style_reference.safetensors loras/krea2_identity_edit_v1_2.safetensors; do
       [ -s "$M/$f" ] || { echo "MISSING: $M/$f"; exit 1; }
       ls -l "$M/$f"
     done
     if [ -n "${CIVITAI_TOKEN:-}" ]; then
-      f=MysticXXX_MMH3-V4.safetensors
-      [ -s "$M/loras/$f" ] || { echo "MISSING: $M/loras/$f (CivitAI download failed?)"; exit 1; }
-      ls -l "$M/loras/$f"
+      for f in MysticXXX_MMH3-V4.safetensors MysticXXX_MMH3-V4-ref2va.safetensors RealisticSnapshotKrea2.safetensors; do
+        [ -s "$M/loras/$f" ] || { echo "MISSING: $M/loras/$f (CivitAI download failed?)"; exit 1; }
+        ls -l "$M/loras/$f"
+      done
     else
-      echo "WARNING: CIVITAI_TOKEN not set; Mystic XXX LoRA was not downloaded. The Mystic workflow will fail until it is added to $M/loras/."
+      echo "WARNING: CIVITAI_TOKEN not set; the Mystic XXX and Realistic Snapshot LoRAs were not downloaded. Their workflows will fail until they are added to $M/loras/."
     fi
-    P="$W/ComfyUI/user/default/workflows/MiniMax_H3_i2v_fl2va_Mystic.json"
-    [ -s "$P" ] && /venv/main/bin/python -c "import json,sys; json.load(open(sys.argv[1]))" "$P" || { echo "MISSING or invalid: $P"; exit 1; }
+    for WF in MiniMax_H3_i2v_fl2va_Mystic.json MiniMax_H3_ref2va_Mystic.json Krea2_turbo_t2i_RealisticSnapshot.json Krea2_turbo_img2img_RealisticSnapshot.json Krea2_turbo_multiref_RealisticSnapshot.json Krea2_identity_edit_RealisticSnapshot.json Krea2_store_restage_RealisticSnapshot.json; do
+      P="$W/ComfyUI/user/default/workflows/$WF"
+      [ -s "$P" ] && /venv/main/bin/python -c "import json,sys; json.load(open(sys.argv[1]))" "$P" || { echo "MISSING or invalid: $P"; exit 1; }
+    done
+    [ -f "$W/ComfyUI/custom_nodes/comfyui-krea2edit/__init__.py" ] || { echo "MISSING: comfyui-krea2edit custom nodes"; exit 1; }
     rm -rf "$M"/*/.cache
